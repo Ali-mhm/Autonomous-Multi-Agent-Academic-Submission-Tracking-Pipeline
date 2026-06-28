@@ -40,7 +40,7 @@ The n8n Active Monitoring Loop: Runs 24/7 in the cloud. It monitors your inbox f
 
 License
 
-Part 1: The Python Pipeline (Google Colab/Script)
+# Part 1: The Python Pipeline (Google Colab/Script)
 
 This script automates journal matchmaking and database initialization. It screens potential journal targets against a target abstract and writes the final curated ranking to Google Drive.
 
