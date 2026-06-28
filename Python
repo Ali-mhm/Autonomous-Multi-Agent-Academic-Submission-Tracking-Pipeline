@@ -1,0 +1,515 @@
+```
+# ============================================================
+# COMPLETE AUTONOMOUS JOURNAL SUBMISSION SYSTEM
+# ============================================================
+# A comprehensive workflow for academic journal submission automation
+# including journal discovery, filtering, ranking, and cover letter generation
+# ============================================================
+
+# ============================================================
+# SECTION 1: INSTALLATION & IMPORTS
+# ============================================================
+
+!pip install requests paperscraper beautifulsoup4 google-genai
+
+import os
+import json
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+from google import genai
+from google.colab import userdata, auth
+import gspread
+from google.auth import default
+
+
+# ============================================================
+# SECTION 2: GEMINI API CONFIGURATION
+# ============================================================
+
+def initialize_gemini():
+    """Initialize Gemini API client with error handling."""
+    try:
+        GOOGLE_API_KEY = userdata.get('GEMINI_API_KEY')
+        client = genai.Client(api_key=GOOGLE_API_KEY)
+        print("✅ Gemini API Engine connected successfully!")
+        return client
+    except Exception as e:
+        print(f"⚠️ Please check your GEMINI_API_KEY in the Colab Secrets tab! Error: {e}")
+        return None
+
+client = initialize_gemini()
+
+
+# ============================================================
+# SECTION 3: ABSTRACT DEFINITION
+# ============================================================
+
+YOUR_ABSTRACT = """
+Colon cancer (CRC) remains a major health burden, highlighting the need for 
+specific, non-invasive biomarkers for early detection. Aberrant DNA methylation 
+is a hallmark of cancer, yet CRC-specific markers are still limited.
+
+We performed an integrative multi-omics analysis using genome-wide DNA methylation 
+(Illumina HumanMethylation450K) and RNA-seq data from The Cancer Genome Atlas. 
+Differentially methylated CpGs (DMCs) and differentially expressed genes (DEGs) 
+were identified between tumor and normal tissues. Hypermethylated and downregulated 
+genes were used to construct a CpG–gene–transcription factor network, and key 
+genes were prioritized using the Multiplex PageRank algorithm. Candidate 
+biomarkers were further assessed for specificity across ten other cancer types.
+
+We identified 326 hypermethylated and downregulated genes and a panel of 11 CpG 
+sites specifically hypermethylated in CRC. These findings provide promising 
+candidates for non-invasive CRC diagnosis and demonstrate the value of 
+integrative systems biology approaches.
+"""
+
+
+# ============================================================
+# SECTION 4: KEYWORD EXTRACTION FROM ABSTRACT
+# ============================================================
+
+def extract_keywords(client, abstract):
+    """Extract core technical keyphrases from the abstract."""
+    prompt = f"""
+    Read the following research abstract and extract the 4 to 6 most important 
+    core technical keyphrases. Wrap each keyphrase in double quotes, and separate 
+    them with spaces so a database can search them perfectly. Do not include any 
+    introductory text, bullet points, or extra explanation. Only return the 
+    quoted phrases.
+
+    Abstract:
+    {abstract}
+    """
+    
+    response = client.models.generate_content(
+        model='models/gemini-flash-latest',
+        contents=prompt,
+    )
+    return response.text.strip()
+
+if client:
+    my_keywords = extract_keywords(client, YOUR_ABSTRACT)
+    print("🔑 Extracted Keywords:")
+    print(my_keywords)
+
+
+# ============================================================
+# SECTION 5: JOURNAL DATA ENRICHMENT WITH METRICS
+# ============================================================
+
+def enrich_journals_with_metrics(client, journal_list):
+    """Enrich journal data with Impact Factor and Quartile information."""
+    journal_names = [item["Journal Name"] for item in journal_list]
+    
+    prompt = f"""
+    You are an academic database metrics engine. Look up or accurately estimate 
+    the current real Impact Factor and the standard SCImago Journal Quartile 
+    (Q1, Q2, Q3, or Q4) for the scientific journals listed below.
+    
+    Journal List:
+    {journal_names}
+    
+    Output your entire response strictly as a valid JSON list of objects. 
+    Do not include markdown formatting like ```json or any conversational text. 
+    Use this exact structure:
+    [
+        {{"journal_name": "Exact Journal Name", "impact_factor": 4.5, "quartile": "Q1"}}
+    ]
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model='models/gemini-flash-latest',
+            contents=prompt
+        )
+        
+        clean_json_str = response.text.replace("```json", "").replace("```", "").strip()
+        ai_metrics_list = json.loads(clean_json_str)
+        
+        metrics_map = {item["journal_name"].lower().strip(): item for item in ai_metrics_list}
+        
+        enriched_journals = []
+        for entry in journal_list:
+            original_name = entry["Journal Name"]
+            lookup_key = original_name.lower().strip()
+            
+            ai_data = metrics_map.get(lookup_key, {})
+            impact = ai_data.get("impact_factor", "N/A")
+            quartile = ai_data.get("quartile", "N/A")
+            
+            enriched_journals.append({
+                "Journal Name": original_name,
+                "Impact Factor": impact,
+                "Quartile": quartile,
+                "Publisher": entry["Publisher"],
+                "Matched Title From Database": entry["Matched Article Title"]
+            })
+        
+        df_final_metrics = pd.DataFrame(enriched_journals)
+        df_final_metrics = df_final_metrics.sort_values(
+            by="Impact Factor", 
+            ascending=False, 
+            key=lambda x: pd.to_numeric(x, errors='coerce').fillna(-1)
+        )
+        
+        print("🎯 Success! Metric columns are populated.")
+        return df_final_metrics
+        
+    except Exception as e:
+        print(f"❌ Error during structured processing: {e}")
+        return pd.DataFrame(journal_list)
+
+# Note: final_journal_list should be populated from your Crossref search
+# df_final_metrics = enrich_journals_with_metrics(client, final_journal_list)
+
+
+# ============================================================
+# SECTION 6: GOOGLE SHEETS INTEGRATION
+# ============================================================
+
+def connect_to_google_sheets():
+    """Authenticate and connect to Google Sheets."""
+    print("🔐 Authenticating your Google Drive and Sheets access...")
+    auth.authenticate_user()
+    creds, _ = default()
+    gc = gspread.authorize(creds)
+    return gc
+
+def create_or_open_spreadsheet(gc, spreadsheet_name):
+    """Create a new spreadsheet or open existing one."""
+    try:
+        sh = gc.open(spreadsheet_name)
+        worksheet = sh.get_worksheet(0)
+        print(f"📊 Connected to existing sheet: '{spreadsheet_name}'")
+        return sh, worksheet
+    except gspread.exceptions.SpreadsheetNotFound:
+        print(f"✨ Creating a brand-new Google Sheet named '{spreadsheet_name}'...")
+        sh = gc.create(spreadsheet_name)
+        worksheet = sh.get_worksheet(0)
+        
+        headers = ["Journal Name", "Impact Factor", "Quartile", "Publisher", "Matched Database Article Title"]
+        worksheet.append_row(headers)
+        print("📋 Header layout successfully written to Row 1!")
+        return sh, worksheet
+
+def write_to_google_sheets(df, spreadsheet_name):
+    """Write DataFrame to Google Sheets."""
+    gc = connect_to_google_sheets()
+    sh, worksheet = create_or_open_spreadsheet(gc, spreadsheet_name)
+    
+    print("⏳ Writing your journals into the spreadsheet layout...")
+    df_clean = df.fillna("N/A")
+    rows_to_append = df_clean.values.tolist()
+    worksheet.append_rows(rows_to_append)
+    
+    print(f"\n🎉 ALL DONE! Added {len(rows_to_append)} rows to your spreadsheet!")
+    return sh
+
+# Execute the write operation
+# write_to_google_sheets(df_final_metrics, "My Journal Submissions Tracker")
+
+
+# ============================================================
+# SECTION 7: JOURNAL FILTERING & SHORTLISTING
+# ============================================================
+
+def shortlist_journals(client, df_metrics, abstract):
+    """Filter and rank journals based on criteria."""
+    raw_journals_data = df_metrics.to_dict(orient="records")
+    
+    print(f"🧠 Editorial Agent: Screening journals against your specific criteria...")
+    print("🎯 Filters: Impact Factor between 2 and 10 | Quartile must be Q1 or Q2 | High Scope Match")
+    
+    prompt = f"""
+    You are an expert senior academic editor ranking journals for a research paper submission.
+    
+    Your Task:
+    Review the list of candidate journals provided below and evaluate them against 
+    the author's target abstract and target constraints.
+    
+    Author's Target Abstract:
+    {abstract}
+    
+    Target Constraints:
+    - Impact Factor: Must be between 2.0 and 10.0.
+    - Quartile: Must be Q1 or Q2.
+    
+    Candidate Journals Data:
+    {json.dumps(raw_journals_data, indent=2)}
+    
+    Evaluation Rules:
+    1. Filter out any journal that clearly violates the target constraints 
+       (e.g., Impact Factor under 2 or over 10, or Q3/Q4 quartile).
+    2. For journals that pass the filter, evaluate how well the journal's typical 
+       scientific scope aligns with the technical themes in the abstract 
+       (multi-omics, DNA methylation, bioinformatics networks, colon cancer/oncology).
+    3. Assign a "Scope Match %" (0% to 100%) and write a brief 1-sentence 
+       "Editorial Reason" explaining why it's a good match.
+    
+    Output your entire response strictly as a valid JSON list of objects. 
+    Do not include markdown formatting. Use this exact structure:
+    [
+        {{
+            "Journal Name": "Example Journal",
+            "Impact Factor": 4.5,
+            "Quartile": "Q1",
+            "Publisher": "Example Publisher",
+            "Scope Match %": 95,
+            "Editorial Reason": "Strong fit because they frequently publish..."
+        }}
+    ]
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model='models/gemini-flash-latest',
+            contents=prompt
+        )
+        
+        clean_json_str = response.text.replace("```json", "").replace("```", "").strip()
+        shortlisted_data = json.loads(clean_json_str)
+        
+        df_shortlist = pd.DataFrame(shortlisted_data)
+        df_shortlist = df_shortlist.sort_values(by="Scope Match %", ascending=False)
+        
+        print(f"\n🎉 Shortlist ready! Found {len(df_shortlist)} journals that perfectly fit your preferences.")
+        return df_shortlist
+        
+    except Exception as e:
+        print(f"❌ Error during screening: {e}")
+        return pd.DataFrame()
+
+# Execute the shortlisting
+# df_shortlist = shortlist_journals(client, df_final_metrics, YOUR_ABSTRACT)
+
+
+# ============================================================
+# SECTION 8: CURATED SHORTLIST TO GOOGLE SHEETS
+# ============================================================
+
+def create_curated_shortlist_tab(df_shortlist, spreadsheet_name, tab_name="Curated Shortlist"):
+    """Create a new tab in Google Sheets for the curated shortlist."""
+    gc = connect_to_google_sheets()
+    sh = gc.open(spreadsheet_name)
+    
+    try:
+        worksheet = sh.worksheet(tab_name)
+        print(f"📊 Found existing tab: '{tab_name}'. Clearing old data to update...")
+        worksheet.clear()
+    except gspread.exceptions.WorksheetNotFound:
+        print(f"✨ Creating a brand-new tab named '{tab_name}' inside your spreadsheet...")
+        worksheet = sh.add_worksheet(title=tab_name, rows="100", cols="10")
+    
+    headers = list(df_shortlist.columns)
+    worksheet.append_row(headers)
+    print("📋 Shortlist headers successfully written to Row 1!")
+    
+    print(f"⏳ Writing your custom ranked targets into '{tab_name}'...")
+    df_clean_shortlist = df_shortlist.fillna("N/A")
+    rows_to_append = df_clean_shortlist.values.tolist()
+    worksheet.append_rows(rows_to_append)
+    
+    print(f"\n🎉 SUCCESS! Your elite shortlist of {len(rows_to_append)} journals is saved!")
+    print(f"👉 Open your Google Sheet browser tab to see your new 'Curated Shortlist' tab update live!")
+
+# Execute the tab creation
+# create_curated_shortlist_tab(df_shortlist, "My Journal Submissions Tracker")
+
+
+# ============================================================
+# SECTION 9: COVER LETTER GENERATION
+# ============================================================
+
+def generate_cover_letter(client, df_shortlist, abstract):
+    """Generate a professional cover letter for the top-ranked journal."""
+    if df_shortlist.empty:
+        print("⚠️ Shortlist data missing. Make sure you successfully ran the filter step first!")
+        return None
+    
+    top_journal = df_shortlist.iloc[0]
+    target_journal_name = top_journal["Journal Name"]
+    
+    print(f"✍️ Drafting cover letter for your #1 ranked journal: '{target_journal_name}'...\n")
+    
+    prompt = f"""
+    You are a professional academic writing assistant. Write a formal, persuasive 
+    Cover Letter to the Editor-in-Chief for a research manuscript submission.
+    
+    Target Journal: {target_journal_name}
+    
+    Manuscript Abstract:
+    {abstract}
+    
+    Requirements:
+    1. Use a professional, standard academic cover letter layout 
+       (with bracketed placeholders for the date, author name, and affiliation).
+    2. Clearly state the title of the manuscript 
+       (use a placeholder title like "[Insert Your Manuscript Title Here]").
+    3. Explicitly explain why this work aligns with the specific scope of 
+       {target_journal_name}. Mention keywords like multi-omics, DNA methylation, 
+       and network biology.
+    4. Explicitly state that the manuscript is original, has not been published 
+       elsewhere, and all authors have approved the submission.
+    5. Maintain an elegant, confident, and respectful scholarly tone. 
+       Keep it concise (under 400 words).
+    """
+    
+    response = client.models.generate_content(
+        model='models/gemini-flash-latest',
+        contents=prompt
+    )
+    
+    cover_letter_text = response.text.strip()
+    
+    print("=" * 70)
+    print(f"📄 GENERATED COVER LETTER FOR: {target_journal_name}")
+    print("=" * 70)
+    print(cover_letter_text)
+    print("=" * 70)
+    
+    filename = "generated_cover_letter.txt"
+    with open(filename, "w") as f:
+        f.write(cover_letter_text)
+    print(f"\n💾 Saved to Colab workspace as '{filename}'.")
+    
+    return cover_letter_text
+
+# Execute the cover letter generation
+# generate_cover_letter(client, df_shortlist, YOUR_ABSTRACT)
+
+
+# ============================================================
+# SECTION 10: SUBMISSION GUIDELINES GENERATION
+# ============================================================
+
+def generate_submission_guidelines(client, df_shortlist):
+    """Generate detailed submission guidelines for the top-ranked journal."""
+    if df_shortlist.empty:
+        print("⚠️ Shortlist data missing. Make sure your previous code executed successfully first!")
+        return None
+    
+    top_journal = df_shortlist.iloc[0]
+    target_journal = top_journal["Journal Name"]
+    publisher = top_journal["Publisher"]
+    
+    print(f"🕵️‍♂️ Guidelines Agent: Fetching and structuring rules for '{target_journal}'...")
+    
+    analysis_prompt = f"""
+    You are a professional structural journal formatting agent. Analyze the author 
+    guidelines profile for the following journal.
+    
+    Journal Name: {target_journal}
+    Publisher: {publisher}
+    
+    Based on standard academic publishing constraints for this publisher, extract 
+    and return a clean, structured submission checklist.
+    
+    You must address the following points explicitly:
+    1. Mandatory Section Order: What is the exact step-by-step sequence of sections 
+       required? (e.g., Title Page -> Abstract -> Introduction -> ... -> Figures -> Tables).
+    2. Figures and Tables Rule: Must figures and tables be embedded directly within 
+       the manuscript text file, or must they be uploaded as completely separate 
+       high-resolution source files?
+    3. Mandatory File Types: What file types are required or accepted for the text, 
+       figures, and tables?
+    4. Crucial Hidden Rules: Highlight any word count limits, abstract length caps, 
+       or specific citation style notes (e.g., Vancouver, Harvard).
+    
+    Format your response with clear bold headers, bullet points, and an explicit 
+    checklist structure so the researcher can prepare their files perfectly.
+    """
+    
+    response = client.models.generate_content(
+        model='models/gemini-flash-latest',
+        contents=analysis_prompt
+    )
+    
+    report_text = response.text.strip()
+    
+    print("\n" + "=" * 70)
+    print(f"📋 OFFICIAL SUBMISSION STANDARDS CHECKLIST: {target_journal.upper()}")
+    print("=" * 70)
+    print(report_text)
+    print("=" * 70)
+    
+    filename = "journal_submission_guidelines.txt"
+    with open(filename, "w") as f:
+        f.write(report_text)
+    print(f"\n💾 Structural rules checklist saved to Colab workspace as '{filename}'!")
+    
+    return report_text
+
+# Execute the guidelines generation
+# generate_submission_guidelines(client, df_shortlist)
+
+
+# ============================================================
+# SECTION 11: MAIN EXECUTION PIPELINE
+# ============================================================
+
+def run_complete_pipeline():
+    """Execute the entire journal submission automation pipeline."""
+    print("=" * 70)
+    print("🚀 STARTING AUTONOMOUS JOURNAL SUBMISSION PIPELINE")
+    print("=" * 70)
+    
+    # Step 1: Initialize Gemini
+    client = initialize_gemini()
+    if not client:
+        print("❌ Failed to initialize Gemini. Exiting...")
+        return
+    
+    # Step 2: Extract keywords
+    keywords = extract_keywords(client, YOUR_ABSTRACT)
+    print(f"\n🔑 Keywords: {keywords}")
+    
+    # Step 3: Enrich journals with metrics
+    # Note: final_journal_list must be defined from previous steps
+    try:
+        df_metrics = enrich_journals_with_metrics(client, final_journal_list)
+        print(f"\n📊 Enriched {len(df_metrics)} journals with metrics")
+    except NameError:
+        print("\n⚠️ Please define 'final_journal_list' first!")
+        return
+    
+    # Step 4: Write to Google Sheets
+    write_to_google_sheets(df_metrics, "My Journal Submissions Tracker")
+    
+    # Step 5: Create curated shortlist
+    df_shortlist = shortlist_journals(client, df_metrics, YOUR_ABSTRACT)
+    create_curated_shortlist_tab(df_shortlist, "My Journal Submissions Tracker")
+    
+    # Step 6: Generate cover letter
+    generate_cover_letter(client, df_shortlist, YOUR_ABSTRACT)
+    
+    # Step 7: Generate submission guidelines
+    generate_submission_guidelines(client, df_shortlist)
+    
+    print("\n" + "=" * 70)
+    print("✅ PIPELINE COMPLETED SUCCESSFULLY!")
+    print("=" * 70)
+    print("📁 Generated Files:")
+    print("   - generated_cover_letter.txt")
+    print("   - journal_submission_guidelines.txt")
+    print("📊 Google Sheet: 'My Journal Submissions Tracker'")
+    print("   - Main tab: All journals with metrics")
+    print("   - Curated Shortlist: Filtered and ranked journals")
+    print("=" * 70)
+
+
+# ============================================================
+# SECTION 12: EXECUTION
+# ============================================================
+
+# Uncomment the line below to run the complete pipeline
+# run_complete_pipeline()
+
+# Or run individual functions as needed:
+# df_final_metrics = enrich_journals_with_metrics(client, final_journal_list)
+# write_to_google_sheets(df_final_metrics, "My Journal Submissions Tracker")
+# df_shortlist = shortlist_journals(client, df_final_metrics, YOUR_ABSTRACT)
+# create_curated_shortlist_tab(df_shortlist, "My Journal Submissions Tracker")
+# generate_cover_letter(client, df_shortlist, YOUR_ABSTRACT)
+# generate_submission_guidelines(client, df_shortlist)
+```
