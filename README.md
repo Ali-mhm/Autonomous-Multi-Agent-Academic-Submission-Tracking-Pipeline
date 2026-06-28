@@ -17,7 +17,7 @@ Prerequisites & Setup
 
 Full Python Implementation
 
-Optional: Interactive Gradio GUI Dashboard
+#optional-interactive-gradio-gui-dashboard
 
 Part 2: The n8n Real-time Loop (Autopilot)
 
