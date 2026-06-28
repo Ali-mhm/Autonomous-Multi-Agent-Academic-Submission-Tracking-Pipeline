@@ -14,33 +14,20 @@ The n8n Active Monitoring Loop: Runs 24/7 in the cloud. It monitors your inbox f
 
 🌟 How the Hybrid System Works
 
-## Part 1: The Python Pipeline (Google Colab/Script)
+- [Part 1: The Python Pipeline (Google Colab/Script)](#part-1-the-python-pipeline-google-colabscript)
+  - [Prerequisites & Setup](#prerequisites--setup)
+  - [Full Python Implementation](#full-python-implementation)
+  - [Optional: Interactive Gradio GUI Dashboard](#optional-interactive-gradio-gui-dashboard)
+- [Part 2: The n8n Real-time Loop (Autopilot)](#part-2-the-n8n-real-time-loop-autopilot)
+  - [Workflow Overview](#workflow-overview)
+  - [Importing the n8n JSON Template](#importing-the-n8n-json-template)
+- [🛡️ Why We Chose n8n Over a Pure Python Tracking Loop](#️-why-we-chose-n8n-over-a-pure-python-tracking-loop)
+  - [1. No Real-Time, 24/7 Screening (Without High Costs)](#1-no-real-time-247-screening-without-high-costs)
+  - [2. Painful Gmail API Setup & Maintenance](#2-painful-gmail-api-setup--maintenance)
+  - [3. Serious Security Vulnerabilities for Personal Mailboxes](#3-serious-security-vulnerabilities-for-personal-mailboxes)
+  - [4. The n8n Solution: Secure, Instant, Visual](#4-the-n8n-solution-secure-instant-visual)
 
-### Prerequisites & Setup
-    
-### Full Python Implementation
-
-### Optional: Interactive Gradio GUI Dashboard
-
-## Part 2: The n8n Real-time Loop (Autopilot)
-
-### Workflow Overview
-    
-### Importing the n8n JSON Template
-
-## 🛡️ Why We Chose n8n Over a Pure Python Tracking Loop
-
-### 1. No Real-Time, 24/7 Screening (Without High Costs)
-    
-### 2. Painful Gmail API Setup & Maintenance
-    
-### 3. Serious Security Vulnerabilities for Personal Mailboxes
-
-### 4. The n8n Solution: Secure, Instant, Visual
-
-License
-
-# Part 1: The Python Pipeline (Google Colab/Script)
+Part 1: The Python Pipeline (Google Colab/Script)
 
 This script automates journal matchmaking and database initialization. It screens potential journal targets against a target abstract and writes the final curated ranking to Google Drive.
 
