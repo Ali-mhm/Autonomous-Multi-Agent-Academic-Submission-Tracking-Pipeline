@@ -1,0 +1,337 @@
+{
+  "name": "Complete Autonomous Journal Submission Loop",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "q": "subject:(manuscript OR submission OR decision OR review OR journal)"
+        }
+      },
+      "id": "gmail_trigger_node",
+      "name": "Gmail Trigger (New Emails)",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2Api": {
+          "id": "secure_gmail_credentials",
+          "name": "My Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = ($json.textAsHtml || $json.text || $json.html || '').toLowerCase();\nconst subject = ($json.subject || '').toLowerCase();\nlet status = 'PENDING';\n\nif (body.includes('revise') || body.includes('revision') || body.includes('major changes') || body.includes('minor changes') || body.includes('request modifications')) {\n  status = 'REVISED';\n} else if (body.includes('reject') || body.includes('decline') || body.includes('unsuitable') || body.includes('not pass') || body.includes('regret to inform')) {\n  status = 'REJECTED';\n} else if (body.includes('accept') || body.includes('publish') || body.includes('approved')) {\n  status = 'ACCEPTED';\n} else if (body.includes('submitted') || body.includes('received') || body.includes('successful submission') || body.includes('under review')) {\n  status = 'PENDING';\n}\n\nreturn {\n  status,\n  subject,\n  email_date: $json.date || new Date().toISOString()\n};"
+      },
+      "id": "parse_decision_node",
+      "name": "Parse Decision Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1vWMGK_597Wuf6gh0tszrh97-l0YfVCWoMGXmQqT5CWw",
+          "mode": "id"
+        },
+        "sheetName": "Curated Shortlist",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Journal Name",
+              "operator": "regex",
+              "value": "={{ $json.subject }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "={{ $json.status }}"
+          },
+          "matchingColumns": [
+            "Journal Name"
+          ]
+        }
+      },
+      "id": "update_sheet_status_node",
+      "name": "Update Sheets Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        500,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "secure_google_sheets_credentials",
+          "name": "My Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "REJECTED"
+            },
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "REVISED"
+            },
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "ACCEPTED"
+            }
+          ]
+        }
+      },
+      "id": "status_switch_node",
+      "name": "Branch on Status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "your_email@gmail.com",
+        "subject": "🎉 Action Required: Revision Requested!",
+        "messageType": "text",
+        "message": "=Hi Researcher,\n\nGreat news! A journal has requested revisions for your manuscript.\n\nStatus: REVISED\nSubject: {{ $json.subject }}\n\nPlease log into the submission portal to read the reviewer remarks and complete your modifications. The automated system has paused.",
+        "options": {}
+      },
+      "id": "revision_notification_node",
+      "name": "Notify Revision",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        950,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2Api": {
+          "id": "secure_gmail_credentials",
+          "name": "My Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "your_email@gmail.com",
+        "subject": "🏆 SUCCESS: Manuscript Accepted!",
+        "messageType": "text",
+        "message": "=Congratulations! Your paper has been officially accepted for publication!\n\nStatus: ACCEPTED\nSubject: {{ $json.subject }}\n\nNo further actions are required from the automation loop.",
+        "options": {}
+      },
+      "id": "acceptance_notification_node",
+      "name": "Notify Acceptance",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        950,
+        450
+      ],
+      "credentials": {
+        "gmailOAuth2Api": {
+          "id": "secure_gmail_credentials",
+          "name": "My Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1vWMGK_597Wuf6gh0tszrh97-l0YfVCWoMGXmQqT5CWw",
+          "mode": "id"
+        },
+        "sheetName": "Curated Shortlist",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Status",
+              "operator": "isEmpty"
+            }
+          ]
+        }
+      },
+      "id": "get_next_journal_node",
+      "name": "Get Next Journal",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        950,
+        150
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "secure_google_sheets_credentials",
+          "name": "My Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "apiKey",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"You are an expert academic publishing agent. The researcher's manuscript was rejected by their previous target journal. They are now transitioning to their next-highest prioritized journal: '{{ $json['Journal Name'] }}' (Publisher: {{ $json['Publisher'] || 'unspecified' }}).\\n\\nResearch Abstract:\\nColon cancer (CRC) remains a major health burden, highlighting the need for specific, non-invasive biomarkers for early detection. Aberrant DNA methylation is a hallmark of cancer, yet CRC-specific markers are still limited. We performed an integrative multi-omics analysis using genome-wide DNA methylation (Illumina HumanMethylation450K) and RNA-seq data from The Cancer Genome Atlas...\\n\\nPlease generate two comprehensive outputs:\\n\\n1. [COVER LETTER] A tailored, professional cover letter to the Editor-in-Chief of '{{ $json['Journal Name'] }}' referencing the abstract. Keep it under 300 words.\\n\\n2. [AUTHOR GUIDELINES] Detailed manuscript layout rules for '{{ $json['Journal Name'] }}' based on its publisher. Outline the standard manuscript section sequence (e.g., Title Page, Abstract, Intro, Methods, Results, Discussion, References) and specific rules on figure/table formatting and file uploads.\\n\\nFormat your entire response cleanly with clear Markdown headers: '### 📄 COVER LETTER' and '### 📋 SUBMISSION GUIDELINES'.\"\n    }]\n  }]\n}"
+      },
+      "id": "gemini_api_node",
+      "name": "Call Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1150,
+        150
+      ],
+      "credentials": {
+        "apiKey": {
+          "id": "gemini_api_key_credentials",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "your_email@gmail.com",
+        "subject": "📢 Submission Transition: Next Target '{{ $parent['Get Next Journal'].json['Journal Name'] }}'",
+        "messageType": "text",
+        "message": "=Hi Researcher,\n\nYour previous submission was rejected. The system has automatically advanced to your next prioritized target: {{ $parent['Get Next Journal'].json['Journal Name'] }}.\n\nBelow are your customized cover letter and formatting guidelines generated by Gemini:\n\n============================================================\n{{ $json.candidates[0].content.parts[0].text }}\n============================================================\n\nUse this information to format and submit your paper as soon as possible!",
+        "options": {}
+      },
+      "id": "email_notification_node",
+      "name": "Email Cover Letter & Guidelines",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1350,
+        150
+      ],
+      "credentials": {
+        "gmailOAuth2Api": {
+          "id": "secure_gmail_credentials",
+          "name": "My Gmail Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Gmail Trigger (New Emails)": {
+      "main": [
+        [
+          {
+            "node": "Parse Decision Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Decision Status": {
+      "main": [
+        [
+          {
+            "node": "Update Sheets Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Sheets Status": {
+      "main": [
+        [
+          {
+            "node": "Branch on Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Branch on Status": {
+      "main": [
+        [
+          {
+            "node": "Get Next Journal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Revision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Acceptance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Next Journal": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Email Cover Letter & Guidelines",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
