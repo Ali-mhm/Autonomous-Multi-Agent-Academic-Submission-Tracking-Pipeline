@@ -32,7 +32,7 @@ The n8n Active Monitoring Loop: Runs 24/7 in the cloud. It monitors your inbox f
 
 This script automates journal matchmaking and database initialization. It screens potential journal targets against a target abstract and writes the final curated ranking to Google Drive.
 
-Prerequisites & Setup
+## Prerequisites & Setup
 
 Libraries: Install the necessary requirements:
 
@@ -44,7 +44,7 @@ API Keys: Add GEMINI_API_KEY to your environment variables (or Google Colab Secr
 Google Sheets Access:
 Ensure you run the authentication step so your environment can read/write to your Google Drive.
 
-Full Python Implementation
+## Full Python Implementation
 
 Below is the consolidated, production-ready pipeline script. Replace the abstract and spreadsheet configurations with your own data.
 
@@ -58,7 +58,7 @@ from google import genai
 from google.colab import auth, userdata
 ```
 
-=
+
 ⚙️ USER CONFIGURATIONS - REPLACE WITH YOURS
 =
 1. Your Research Abstract
@@ -76,7 +76,7 @@ TARGET_QUARTILES = ["Q1", "Q2"]  # Options: Q1, Q2, Q3, Q4
 SPREADSHEET_NAME = "My Journal Submissions Tracker"
 NEW_TAB_NAME = "Curated Shortlist"
 
-=
+
 🛠️ INITIALIZING GOOGLE GEMINI ENGINE
 =
 print("🧠 Connecting to the Gemini API Engine...")
@@ -90,7 +90,7 @@ except Exception as e:
     print("Ensure 'GEMINI_API_KEY' is properly set in your environment or Secrets.")
     client = None
 
-=
+
 🔍 STEP 1: KEYWORD EXTRACTION AGENT
 =
 if client:
@@ -114,7 +114,7 @@ if client:
         print(f"❌ Keyword extraction failed: {e}")
         my_keywords = ""
 
-=
+
 📊 STEP 2: METRIC ENRICHMENT AGENT
 =
 Mock search results for structural showcase. Replace this with your search scraper list if integrated.
@@ -180,7 +180,7 @@ if client and final_journal_list:
         print(f"❌ Metrics lookup failed: {e}")
         df_final_metrics = pd.DataFrame(final_journal_list)
 
-=
+
 🎯 STEP 3: SCOPE FIT & EDITORIAL SCREENING
 =
 if client and not df_final_metrics.empty:
@@ -227,9 +227,9 @@ if client and not df_final_metrics.empty:
         print(f"❌ Scope match screening failed: {e}")
         df_shortlist = df_final_metrics
 
-# ==========================================
-# 💾 STEP 4: SHEET DEPLOYMENT & AUTO-SAVE
-# ==========================================
+
+💾 STEP 4: SHEET DEPLOYMENT & AUTO-SAVE
+=
 if not df_shortlist.empty:
     print(f"\n🔐 Connecting to Google Sheets and updating database table...")
     try:
@@ -271,10 +271,10 @@ if not df_shortlist.empty:
         print(f"❌ Failed to write to Google Sheets: {e}")
 
 
-Optional: Interactive Gradio GUI Dashboard
+## Optional: Interactive Gradio GUI Dashboard
 
 If you prefer a visual, interactive browser dashboard to run your pipeline dynamically inside your Google Colab canvas, you can execute the code below. This initializes a rich Gradio-powered web interface allowing you to adjust sliders, view curated match matrices, and preview generated letters instantly.
-
+```
 import gradio as gr
 import pandas as pd
 import json
@@ -494,13 +494,13 @@ with gr.Blocks(theme=gr.themes.Default()) as academic_app:
 
 # Render seamlessly inside your Google Colab display canvas
 academic_app.launch(inline=True)
+```
 
-
-Part 2: The n8n Real-time Loop (Autopilot)
+# Part 2: The n8n Real-time Loop (Autopilot)
 
 While the Python script is excellent for doing initial calculations and analysis, you don't want to run it manually every time an editor sends you an email. This is where n8n comes in!
 
-Workflow Overview
+## Workflow Overview
 
 The fully_automated_n8n_loop.json template on your visual canvas serves as a 24/7 background listener.
 
@@ -516,10 +516,11 @@ If Accepted/Revised: Pauses the pipeline and emails you with instructions/congra
 
 If Rejected: Automatically queries your Google Sheet, identifies your next-highest prioritised journal with an empty status, calls Gemini's standard guidelines API, generates a New Cover Letter and Publisher Submission Guidelines for that target, and emails both straight to your personal inbox.
 
-Importing the n8n JSON Template
+## Importing the n8n JSON Template
 
 Copy the raw JSON array in fully_automated_n8n_loop.json from the Canvas.
-
+```
+```
 Log into your n8n workspace in your browser.
 
 Open a brand new, empty workflow.
@@ -528,25 +529,25 @@ Left-click once directly on the grid canvas, then press Ctrl + V (or Cmd + V on 
 
 Open the nodes and authorize your Google Sheets and Gmail modules.
 
-Replace the Google Spreadsheet ID parameter with your exact spreadsheet ID from the URL (1vWMGK_597Wuf6gh0tszrh97-l0YfVCWoMGXmQqT5CWw).
+Replace the Google Spreadsheet ID parameter with your exact spreadsheet ID from the URL .
 
 Save the workflow and toggle the active switch to Active (Green)!
 
 Now your academic pipeline is running on pure autopilot!
 
-🛡️ Why We Chose n8n Over a Pure Python Tracking Loop
+# 🛡️ Why We Chose n8n Over a Pure Python Tracking Loop
 
 When designing this pipeline, we initially considered writing a pure Python script (e.g., using the imaplib or google-api-python-client libraries) to poll Gmail, update the spreadsheet, and trigger the loop. However, this approach carries severe limitations that make it highly impractical and insecure for production:
 
-1. No Real-Time, 24/7 Screening (Without High Costs)
+## 1. No Real-Time, 24/7 Screening (Without High Costs)
 
 Google Colab is interactive and temporary; it will time out and shut down minutes after you close your browser tab. To run a Python script 24/7, you would have to rent an expensive virtual private server (VPS) or rely on cloud crons (like PythonAnywhere) which only run scripts once a day. This means your script wouldn't notice a rejection until up to 24 hours later, whereas n8n monitors your inbox dynamically and responds instantly.
 
-2. Painful Gmail API Setup & Maintenance
+## 2. Painful Gmail API Setup & Maintenance
 
 Establishing a secure connection to Google Services in raw Python is notoriously difficult. It requires creating a Google Cloud Developer project, turning on the Gmail API, configuring OAuth consent screens, generating security tokens, downloading a fragile credentials.json file, and writing complex authentication refresh handlers in Python.
 
-3. Serious Security Vulnerabilities for Personal Mailboxes
+## 3. Serious Security Vulnerabilities for Personal Mailboxes
 
 Because Python scripts store authentication tokens locally or in environment variables, a pure Python approach forces you to either:
 
@@ -554,7 +555,7 @@ Expose Google App Passwords: Saving custom app passwords or raw login credential
 
 Expose Local Tokens: Storing offline OAuth tokens inside a public GitHub repository or shared Google Colab notebook poses a severe security risk, potentially granting bad actors full read/write access to your entire personal or institutional Gmail inbox.
 
-The n8n Solution: Secure, Instant, Visual
+## 4. The n8n Solution: Secure, Instant, Visual
 
 n8n bypasses these issues completely. It handles authentication using the industry-standard, secure OAuth 2.0 protocol directly inside its sandboxed, encrypted database. You never have to write custom authentication handlers, your credentials are never exposed in open-source code, and the tool triggers event-driven tasks instantaneously, without draining system resources or costing a dime.
 
