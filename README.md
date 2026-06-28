@@ -270,7 +270,7 @@ if not df_shortlist.empty:
         print(f"❌ Failed to write to Google Sheets: {e}")
 
 
-Optional: Interactive Gradio GUI Dashboard
+#optional-interactive-gradio-gui-dashboard
 
 If you prefer a visual, interactive browser dashboard to run your pipeline dynamically inside your Google Colab canvas, you can execute the code below. This initializes a rich Gradio-powered web interface allowing you to adjust sliders, view curated match matrices, and preview generated letters instantly.
 
