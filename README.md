@@ -16,27 +16,27 @@ The n8n Active Monitoring Loop: Runs 24/7 in the cloud. It monitors your inbox f
 
 ## Part 1: The Python Pipeline (Google Colab/Script)
 
-    ### Prerequisites & Setup
+### Prerequisites & Setup
     
-    ### Full Python Implementation
+### Full Python Implementation
 
-    ### Optional: Interactive Gradio GUI Dashboard
+### Optional: Interactive Gradio GUI Dashboard
 
 ## Part 2: The n8n Real-time Loop (Autopilot)
 
-    ### Workflow Overview
+### Workflow Overview
     
-    ### Importing the n8n JSON Template
+### Importing the n8n JSON Template
 
 ## 🛡️ Why We Chose n8n Over a Pure Python Tracking Loop
 
-    ### 1. No Real-Time, 24/7 Screening (Without High Costs)
+### 1. No Real-Time, 24/7 Screening (Without High Costs)
     
-    ### 2. Painful Gmail API Setup & Maintenance
+### 2. Painful Gmail API Setup & Maintenance
     
-    ### 3. Serious Security Vulnerabilities for Personal Mailboxes
+### 3. Serious Security Vulnerabilities for Personal Mailboxes
 
-    ### 4. The n8n Solution: Secure, Instant, Visual
+### 4. The n8n Solution: Secure, Instant, Visual
 
 License
 
