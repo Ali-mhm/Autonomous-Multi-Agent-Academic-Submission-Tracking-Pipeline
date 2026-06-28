@@ -26,8 +26,9 @@ The n8n Active Monitoring Loop: Runs 24/7 in the cloud. It monitors your inbox f
   - [2. Painful Gmail API Setup & Maintenance](#2-painful-gmail-api-setup--maintenance)
   - [3. Serious Security Vulnerabilities for Personal Mailboxes](#3-serious-security-vulnerabilities-for-personal-mailboxes)
   - [4. The n8n Solution: Secure, Instant, Visual](#4-the-n8n-solution-secure-instant-visual)
+  
 
-Part 1: The Python Pipeline (Google Colab/Script)
+# Part 1: The Python Pipeline (Google Colab/Script)
 
 This script automates journal matchmaking and database initialization. It screens potential journal targets against a target abstract and writes the final curated ranking to Google Drive.
 
@@ -47,35 +48,37 @@ Full Python Implementation
 
 Below is the consolidated, production-ready pipeline script. Replace the abstract and spreadsheet configurations with your own data.
 
+```python
 import os
 import json
 import pandas as pd
 import gspread
 from google import genai
 # If using Google Colab, uncomment the next line to authenticate Sheets and retrieve secrets:
-# from google.colab import auth, userdata
+from google.colab import auth, userdata
+```
 
-# ==========================================
-# ⚙️ USER CONFIGURATIONS - REPLACE WITH YOURS
-# ==========================================
-# 1. Your Research Abstract
+=
+⚙️ USER CONFIGURATIONS - REPLACE WITH YOURS
+=
+1. Your Research Abstract
 USER_ABSTRACT = """
 [Insert your manuscript abstract here. Make sure it contains enough technical context,
 methodologies, and domain keywords so the LLM agent can match journals accurately.]
 """
 
-# 2. Target Constraints
+2. Target Constraints
 MIN_IMPACT_FACTOR = 2.0
 MAX_IMPACT_FACTOR = 10.0
 TARGET_QUARTILES = ["Q1", "Q2"]  # Options: Q1, Q2, Q3, Q4
 
-# 3. Google Sheets Target
+3. Google Sheets Target
 SPREADSHEET_NAME = "My Journal Submissions Tracker"
 NEW_TAB_NAME = "Curated Shortlist"
 
-# ==========================================
-# 🛠️ INITIALIZING GOOGLE GEMINI ENGINE
-# ==========================================
+=
+🛠️ INITIALIZING GOOGLE GEMINI ENGINE
+=
 print("🧠 Connecting to the Gemini API Engine...")
 try:
     # Retrieve key from Environment or Colab Userdata
@@ -87,9 +90,9 @@ except Exception as e:
     print("Ensure 'GEMINI_API_KEY' is properly set in your environment or Secrets.")
     client = None
 
-# ==========================================
-# 🔍 STEP 1: KEYWORD EXTRACTION AGENT
-# ==========================================
+=
+🔍 STEP 1: KEYWORD EXTRACTION AGENT
+=
 if client:
     print("\n🔍 Extracting core technical keywords from abstract...")
     keyword_prompt = f"""
@@ -111,10 +114,10 @@ if client:
         print(f"❌ Keyword extraction failed: {e}")
         my_keywords = ""
 
-# ==========================================
-# 📊 STEP 2: METRIC ENRICHMENT AGENT
-# ==========================================
-# Mock search results for structural showcase. Replace this with your search scraper list if integrated.
+=
+📊 STEP 2: METRIC ENRICHMENT AGENT
+=
+Mock search results for structural showcase. Replace this with your search scraper list if integrated.
 final_journal_list = [
     {"Journal Name": "Nature Medicine", "Publisher": "Springer Nature", "Matched Article Title": "Integrated multi-omics markers"},
     {"Journal Name": "Cancers", "Publisher": "MDPI", "Matched Article Title": "DNA methylation profiling in tumors"},
@@ -177,9 +180,9 @@ if client and final_journal_list:
         print(f"❌ Metrics lookup failed: {e}")
         df_final_metrics = pd.DataFrame(final_journal_list)
 
-# ==========================================
-# 🎯 STEP 3: SCOPE FIT & EDITORIAL SCREENING
-# ==========================================
+=
+🎯 STEP 3: SCOPE FIT & EDITORIAL SCREENING
+=
 if client and not df_final_metrics.empty:
     print("\n🧠 Screening remaining targets against thematic abstract scope...")
     raw_journals_data = df_final_metrics.to_dict(orient="records")
