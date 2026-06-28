@@ -1,4 +1,5 @@
-# Autonomous-Multi-Agent-Academic-Submission-Tracking-Pipeline
+🤖 Autonomous Multi-Agent Academic Submission & Tracking Pipeline
+
 Welcome to the Autonomous Multi-Agent Academic Submission Pipeline! This repository hosts a hybrid automation system that uses large language models (LLMs) and visual workflow orchestration to automate the tedious parts of academic publishing—from abstract analysis and journal shortlisting to real-time decision tracking and auto-generating cover letters for your next target journals upon rejection.
 
 🌟 How the Hybrid System Works
@@ -9,23 +10,33 @@ The Python Compilation Pipeline (Google Colab or Local Script): Evaluates your m
 
 The n8n Active Monitoring Loop: Runs 24/7 in the cloud. It monitors your inbox for emails from journal portals. If a rejection occurs, n8n automatically marks the journal as REJECTED in your Google Sheet, identifies the next prioritized journal, calls Gemini to draft a new custom cover letter alongside publisher guidelines, and drops those assets straight into your inbox.
 
-📋 Table of Contents
+# 📋 Table of Contents
 
-Part 1: The Python Pipeline (Google Colab/Script)
+🌟 How the Hybrid System Works
 
-Prerequisites & Setup
+## Part 1: The Python Pipeline (Google Colab/Script)
 
-Full Python Implementation
+    ### Prerequisites & Setup
+    
+    ### Full Python Implementation
 
-#optional-interactive-gradio-gui-dashboard
+    ### Optional: Interactive Gradio GUI Dashboard
 
-Part 2: The n8n Real-time Loop (Autopilot)
+## Part 2: The n8n Real-time Loop (Autopilot)
 
-Workflow Overview
+    ### Workflow Overview
+    
+    ### Importing the n8n JSON Template
 
-Importing the n8n JSON Template
+## 🛡️ Why We Chose n8n Over a Pure Python Tracking Loop
 
-🛡️ Why We Chose n8n Over a Pure Python Tracking Loop
+    ### 1. No Real-Time, 24/7 Screening (Without High Costs)
+    
+    ### 2. Painful Gmail API Setup & Maintenance
+    
+    ### 3. Serious Security Vulnerabilities for Personal Mailboxes
+
+    ### 4. The n8n Solution: Secure, Instant, Visual
 
 License
 
@@ -270,7 +281,7 @@ if not df_shortlist.empty:
         print(f"❌ Failed to write to Google Sheets: {e}")
 
 
-#optional-interactive-gradio-gui-dashboard
+Optional: Interactive Gradio GUI Dashboard
 
 If you prefer a visual, interactive browser dashboard to run your pipeline dynamically inside your Google Colab canvas, you can execute the code below. This initializes a rich Gradio-powered web interface allowing you to adjust sliders, view curated match matrices, and preview generated letters instantly.
 
